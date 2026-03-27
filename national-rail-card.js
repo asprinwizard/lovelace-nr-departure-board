@@ -14,29 +14,29 @@ class NationalRailCard extends HTMLElement {
       major_delay_threshold: 10,   // minutes
       entities: [],                // empty by default
     };
-  
+
     // Merge defaults
     this.config = { ...defaults, ...config };
-  
+
     // If single entity passed, append it to entities
     if (config.entity) {
       this.config.entities.push(config.entity);
     }
-  
+
     // Normalize entities array: turn strings into objects
     this.config.entities = this.config.entities.map(e => {
       if (typeof e === "string") return { entity: e, type: null };
       return e;
     });
-  
+
     delete this.config.entity; // no longer used
   }
-  
+
   set hass(hass) {
     if (!this.content) {
       this.innerHTML = `<div class="card"></div>`;
       this.content = this.querySelector(".card");
-  
+
       const style = document.createElement("style");
       style.textContent = `
         .card { background: var(--ha-card-background, white); border-radius:12px; box-shadow: var(--ha-card-box-shadow,0 2px 4px rgba(0,0,0,0.1)); padding:0 16px; box-sizing:border-box; overflow:hidden;}
@@ -67,7 +67,7 @@ class NationalRailCard extends HTMLElement {
       `;
       this.appendChild(style);
     }
-  
+
     try {
       // --- Normalizers ---
       const normalizers = {
@@ -94,19 +94,15 @@ class NationalRailCard extends HTMLElement {
         
           const toISODateTime = (timeStr) => {
             if (!timeStr) return null;
-        
+          
             const [hours, minutes] = timeStr.split(":").map(Number);
-        
+          
             const d = new Date();
             d.setHours(hours, minutes, 0, 0);
-        
-            // If time has already passed today, assume it's tomorrow
-            if (d < today) {
-              d.setDate(d.getDate() + 1);
-            }
-        
-            return d.toISOString();
+          
+            return d.toISOString(); // 🚫 no rollover logic
           };
+
         
           return trains.map(t => ({
             scheduled: toISODateTime(t.scheduled_departure),
@@ -119,33 +115,33 @@ class NationalRailCard extends HTMLElement {
           }));
         }
       };
-  
+
       // Gather all trains from all entities
       let allTrains = [];
       this.config.entities.forEach(eidObj => {
         const entity = hass.states[eidObj.entity];
         if (!entity) return;
-  
+
         let normalizer = null;
         if (eidObj.type) normalizer = normalizers[eidObj.type];
         else if (eidObj.entity.endsWith("_summary")) normalizer = normalizers.my_rail_commute;
         else if (eidObj.entity.startsWith("sensor.train_schedule_")) normalizer = normalizers.national_rail;
-  
+
         if (!normalizer) return;
-  
+
         allTrains = allTrains.concat(normalizer(entity));
       });
-  
+
       // Filter out departed trains
       const now = new Date();
       allTrains = allTrains.filter(t => {
-        const depTime = t.estimated ? new Date(t.estimated) : new Date(t.scheduled);
+        const depTime = new Date(t.estimated || t.scheduled);
         return (now - depTime)/60000 <= this.config.departed_train_threshold;
       });
-  
+
       // Sort by scheduled time
       allTrains.sort((a,b)=> new Date(a.scheduled)-new Date(b.scheduled));
-  
+
       // Determine service status color
       let serviceColor = "green";
       allTrains.forEach(t=>{
@@ -153,25 +149,25 @@ class NationalRailCard extends HTMLElement {
         if(t.isCancelled || delay>this.config.major_delay_threshold) serviceColor="red";
         else if(delay>this.config.minor_delay_threshold) serviceColor="amber";
       });
-  
+
       // Build HTML
       let html = this.config.show_service_status
         ? `<div class="status-bar ${serviceColor}"></div>`
         : `<div style="height:6px;"></div>`;
-  
+
       allTrains.slice(0,this.config.limit).forEach((t,index)=>{
         const scheduled = this.formatTime(t.scheduled);
         const expected = this.formatTime(t.estimated);
         const delay = (new Date(t.estimated)-new Date(t.scheduled))/60000;
-  
+
         let statusText="On time", statusClass="ontime";
         if(t.isCancelled){statusText="Cancelled"; statusClass="late";}
         else if(delay>this.config.minor_delay_threshold){statusText=expected; statusClass=delay<=this.config.major_delay_threshold?"delay":"late";}
-  
+
         let iconClass = statusClass==="delay"?"delay":statusClass==="late"?"late":"";
-  
+
         const hiddenClass = index>=this.config.initial_visible?"hidden-train":"";
-  
+
         html+=`
           <div class="train ${hiddenClass}">
             <div class="row">
@@ -184,18 +180,18 @@ class NationalRailCard extends HTMLElement {
           </div>
         `;
       });
-  
+
       // Toggle button
       if(allTrains.length>this.config.initial_visible){
         html+=`<div class="toggle-container toggle-btn"><ha-icon icon="mdi:chevron-down"></ha-icon></div>`;
       }
-  
+
       this.content.innerHTML = html;
-  
+
       // Restore expanded state
       const hiddenTrains = this.content.querySelectorAll(".hidden-train");
       if (this.expanded) hiddenTrains.forEach(el => el.classList.add("expanded"));
-  
+
       // Toggle button click
       const btn = this.content.querySelector(".toggle-btn");
       if(btn){
@@ -212,19 +208,19 @@ class NationalRailCard extends HTMLElement {
             : `<ha-icon icon="mdi:chevron-down"></ha-icon>`;
         });
       }
-  
+
     } catch(e){
       this.content.innerHTML="Error parsing data";
       console.error(e);
     }
   }
-  
+
   formatTime(datetime){
     const d = new Date(datetime);
     return d.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
   }
-  
+
   getCardSize(){ return 3; }
-  }
-  
-  customElements.define("nr-departure-board", NationalRailCard);
+}
+
+customElements.define("nr-departure-board", NationalRailCard);
