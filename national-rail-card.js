@@ -142,13 +142,25 @@ class NationalRailCard extends HTMLElement {
       // Sort by scheduled time
       allTrains.sort((a,b)=> new Date(a.scheduled)-new Date(b.scheduled));
 
-      // Determine service status color
-      let serviceColor = "green";
-      allTrains.forEach(t=>{
-        const delay = (new Date(t.estimated)-new Date(t.scheduled))/60000;
-        if(t.isCancelled || delay>this.config.major_delay_threshold) serviceColor="red";
-        else if(delay>this.config.minor_delay_threshold) serviceColor="amber";
+      let hasMajor = false;
+      let hasMinor = false;
+      
+      allTrains.forEach(t => {
+        const delay = (new Date(t.estimated) - new Date(t.scheduled)) / 60000;
+      
+        if (t.isCancelled || delay > this.config.major_delay_threshold) {
+          hasMajor = true;
+        } else if (delay > this.config.minor_delay_threshold) {
+          hasMinor = true;
+        }
       });
+      
+      let serviceColor = "green";
+      if (hasMajor) {
+        serviceColor = "red";
+      } else if (hasMinor) {
+        serviceColor = "amber";
+      }
 
       // Build HTML
       let html = this.config.show_service_status
