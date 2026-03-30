@@ -34,12 +34,12 @@ class NationalRailCard extends HTMLElement {
 
   set hass(hass) {
     if (!this.content) {
-      this.innerHTML = `<div class="card"></div>`;
-      this.content = this.querySelector(".card");
+      this.innerHTML = `<div class="nr-card"></div>`;
+      this.content = this.querySelector(".nr-card");
 
       const style = document.createElement("style");
       style.textContent = `
-        .card { background: var(--ha-card-background, white); border-radius:12px; box-shadow: var(--ha-card-box-shadow,0 2px 4px rgba(0,0,0,0.1)); padding:0 16px; box-sizing:border-box; overflow:hidden;}
+        .nr-card { background: var(--ha-card-background, white); border-radius:12px; box-shadow: var(--ha-card-box-shadow,0 2px 4px rgba(0,0,0,0.1)); padding:0 16px; box-sizing:border-box; overflow:hidden;}
         .status-bar { width: calc(100% + 32px); height: 10px; margin-left:-16px; margin-right:-16px; margin-bottom:6px; border-top-left-radius:12px; border-top-right-radius:12px; transition: background 0.3s ease;}
         .status-bar.green { background: #2e7d32; }
         .status-bar.amber { background: #f9a825; }
